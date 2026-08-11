@@ -1,7 +1,14 @@
 # SmolTO(t)P 2FA
-SmolTO(t)P is a 2 Factor Authentication tool that is designed to be very small (smol), and fairly lightweight, making it portable and convenient at a moment's notice.
+
+> [!WARNING]
+> SmolTOP is still a work in progress, and does not work yet!
+> (although it will be done very soon)
+
+SmolTO(t)P is a Time-based One Time Pass (TOTP) 2 Factor Authentication (2FA) tool that is designed to be very small (smol), and fairly lightweight, making it portable and convenient at a moment's notice.
 
 <img src="logo/logo-transparent-nocircle.png" width=30%>
 
 ### Latest Release:
-(this will be the latest release once a release is completed! :)
+(this will be the latest release once a release is completed! :) \
+**THE CURRENT STATE IS NOT YET COMPLETE!!! USING IT WILL FAIL, OR NOT DO ANYTHING** \
+completed version will be done shortly!
