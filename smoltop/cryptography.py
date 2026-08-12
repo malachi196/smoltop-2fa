@@ -15,13 +15,17 @@ def HMAC(key:str|int|bytes, message:str|int|bytes) -> bytes: #hash-based message
     if isinstance(key, int):
         __tmpkey:str = ""
         if str(key).startswith("0x"): __tmpkey:str = f"{key}"[2:]
-        else: __tmpkey:str = f"{hex(key)}"[2:]
-        key:bytes = bytes.fromhex(__tmpkey)
+        else: __tmpkey:str = hex(key)[2:]
+        if len(__tmpkey) % 2 != 0:
+            __tmpkey = "0" + __tmpkey
+        key:bytes = bytes.fromhex(str(__tmpkey))
     if isinstance(message, str): message:bytes = message.encode("utf-8")
     if isinstance(message, int):
         __tmpmsg:str = ""
         if str(message).startswith("0x"): __tmpmsg:str = f"{message}"[2:]
-        else: __tmpmsg:str = f"{hex(message)}"[2:]
+        else: __tmpmsg:str = hex(message)[2:]
+        if len(__tmpmsg) % 2 != 0:
+            __tmpmsg = "0" + __tmpmsg
         message:bytes=bytes.fromhex(__tmpmsg)
     BLOCKSIZE = 64
     #hmac alg:
@@ -31,8 +35,12 @@ def HMAC(key:str|int|bytes, message:str|int|bytes) -> bytes: #hash-based message
     hashed = _sha1(o_pad_key + _sha1(i_pad_key+message))
     return hashed
 
-def HOTP(key:str|int|bytes): #HMAC-based once time pass
-    pass
+def HOTP(key:str|int|bytes, c:int, digits:int = 6) -> int: #HMAC-based once time pass
+    bc = c.to_bytes(8, "big") #counter must be an 8 byte value
+    hs = HMAC(key, bc)
+    snum = _dynamictruncate(hs)
+    otp = (snum % (10**digits))
+    return otp
 
 def TOTP(key:str|int|bytes, timeinterval_s:int=30): #timed once time pass
     counterepoch = time()/timeinterval_s
@@ -46,13 +54,17 @@ def PBKDF2(passwd:str|int|bytes, salt:str|int|bytes, c:int, dklen:int, prf:PRF=H
     if isinstance(passwd, int):
         __tmppass:str = ""
         if str(passwd).startswith("0x"): __tmppass:str = f"{passwd}"[2:]
-        else: __tmppass:str = f"{hex(passwd)}"[2:]
+        else: __tmppass:str = hex(passwd)[2:]
+        if len(__tmppass) % 2 != 0:
+            __tmppass = "0" + __tmppass
         passwd:bytes = bytes.fromhex(__tmppass)
     if isinstance(salt, str): salt:bytes = salt.encode("utf-8")
     if isinstance(salt, int):
         __tmpsalt:str = ""
         if str(salt).startswith("0x"): __tmpsalt:str = f"{salt}"[2:]
-        else: __tmpsalt:str = f"{hex(salt)}"[2:]
+        else: __tmpsalt:str = hex(salt)[2:]
+        if len(__tmppass) % 2 != 0:
+            __tmpsalt = "0" + __tmpsalt
         salt:bytes=bytes.fromhex(__tmpsalt)
     #pbkdf2 alg:
     intervalsnum = math.ceil(dklen/hlen) #number of intervals needed to achieve length of dklen using hlen long blocks
@@ -89,3 +101,17 @@ def _computekeytoblocksize(key:bytes, blocksize:int, hashfunc:HashFunction=_sha1
         key = key.ljust(blocksize, b'\x00')
     return key
 
+#returns int instead of bytes because result is 31 bits
+def _dynamictruncate(data:bytes)->int: #designed for 20 byte HMAC-SHA1 result
+    if len(data) != 20:
+        raise ValueError("data is not 20 bytes!")
+    obyte:int = data[19]
+    offset = obyte & 0x0f #lower order 4 bits
+    p = ""
+    for i in range(4):
+        patoffset = str(hex(data[offset+(i)])[2:])
+        if len(patoffset) % 2 != 0:
+            patoffset = "0" + patoffset
+        p += patoffset
+    ptrunc = int(p, 16) & 0x7fffffff #clear 32nd bit reducing it to 31 bit
+    return ptrunc
