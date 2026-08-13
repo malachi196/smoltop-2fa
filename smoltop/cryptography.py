@@ -71,7 +71,7 @@ def TOTP(key:str|int|bytes, timeinterval_s:int=30, digits:int=6, encoding:Litera
         if encoding == "base32":
             key = base64.b32decode(key)
         else:
-            raise Exception(f"\"{key}\" isn't a valid/supported encoding!")
+            raise Exception(f"\"{encoding}\" isn't a valid/supported encoding!")
     timenow = time()
     counterepoch:int = timenow // timeinterval_s
     return HOTP(key, int(counterepoch), digits=digits)
