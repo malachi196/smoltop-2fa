@@ -25,6 +25,8 @@ from time import time
 from os import urandom
 from callbackprotocols import PRF, HashFunction
 import math
+import base64
+from typing import Literal
 
 #sha-1 blocksize is 64
 #sha-1 hash length is 20
@@ -55,16 +57,24 @@ def HMAC(key:str|int|bytes, message:str|int|bytes) -> bytes: #hash-based message
     hashed = _sha1(o_pad_key + _sha1(i_pad_key+message))
     return hashed
 
-def HOTP(key:str|int|bytes, c:int, digits:int = 6) -> int: #HMAC-based once time pass
+def HOTP(key:str|int|bytes, c:int, digits:int = 6) -> str: #HMAC-based once time pass
     bc = c.to_bytes(8, "big") #counter must be an 8 byte value
     hs = HMAC(key, bc)
     snum = _dynamictruncate(hs)
-    otp = (snum % (10**digits))
+    otp = str((snum % (10**digits)))
+    while len(otp) < digits:
+        otp = "0"+ otp
     return otp
 
-def TOTP(key:str|int|bytes, timeinterval_s:int=30): #timed once time pass
-    counterepoch = time()/timeinterval_s
-    return HOTP(key)
+def TOTP(key:str|int|bytes, timeinterval_s:int=30, digits:int=6, encoding:Literal["none", "base32"]="base32") -> str: #timed one time pass
+    if encoding != "none":
+        if encoding == "base32":
+            key = base64.b32decode(key)
+        else:
+            raise Exception(f"\"{key}\" isn't a valid/supported encoding!")
+    timenow = time()
+    counterepoch:int = timenow // timeinterval_s
+    return HOTP(key, int(counterepoch), digits=digits)
 
 #password-based key derivation function 2
 def PBKDF2(passwd:str|int|bytes, salt:str|int|bytes, c:int, dklen:int, prf:PRF=HMAC, hlen:int=20) -> bytes:
@@ -107,7 +117,7 @@ def PBKDF2(passwd:str|int|bytes, salt:str|int|bytes, c:int, dklen:int, prf:PRF=H
     dk = dk[:dklen]
     return dk
 
-def AES256():
+def AES256(k, Nc:int=4, Nk:int=4, ):
     pass
 
 def _sha1(data:bytes)->bytes: #sha1 that returns output as bytes
