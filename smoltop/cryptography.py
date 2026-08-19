@@ -93,7 +93,7 @@ def PBKDF2(passwd:str|int|bytes, salt:str|int|bytes, c:int, dklen:int, prf:PRF=H
         __tmpsalt:str = ""
         if str(salt).startswith("0x"): __tmpsalt:str = f"{salt}"[2:]
         else: __tmpsalt:str = hex(salt)[2:]
-        if len(__tmppass) % 2 != 0:
+        if len(__tmpsalt) % 2 != 0:
             __tmpsalt = "0" + __tmpsalt
         salt:bytes=bytes.fromhex(__tmpsalt)
     #pbkdf2 alg:
