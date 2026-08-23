@@ -27,11 +27,20 @@ from callbackprotocols import PRF, HashFunction
 import math
 import base64
 from typing import Literal
+from Crypto.Cipher import AES #aes is safer not to build from scratch
 
 #sha-1 blocksize is 64
 #sha-1 hash length is 20
 
-def HMAC(key:str|int|bytes, message:str|int|bytes) -> bytes: #hash-based message authentication code
+def _sha1(data:bytes)->bytes: #sha1 that returns output as bytes
+    sha1hash = hashlib.sha1(data)
+    return sha1hash.digest()
+
+def _sha256(data:bytes)->bytes:
+    sha256hash = hashlib.sha256(data)
+    return sha256hash.digest()
+
+def HMAC(key:str|int|bytes, message:str|int|bytes, hashfunc:HashFunction=_sha1) -> bytes: #hash-based message authentication code
     # convert key and message to bytes if not already:
     if isinstance(key, str): key:bytes = key.encode("utf-8")
     if isinstance(key, int):
@@ -54,7 +63,7 @@ def HMAC(key:str|int|bytes, message:str|int|bytes) -> bytes: #hash-based message
     blocksizedkey = _computekeytoblocksize(key, BLOCKSIZE)
     i_pad_key = bytes([a ^ b for a, b in zip(blocksizedkey, bytes(BLOCKSIZE * b"\x36"))]) #inner padded key
     o_pad_key = bytes([a ^ b for a, b in zip(blocksizedkey, bytes(BLOCKSIZE * b"\x5c"))]) #outer padded key
-    hashed = _sha1(o_pad_key + _sha1(i_pad_key+message))
+    hashed = hashfunc(o_pad_key + hashfunc(i_pad_key+message))
     return hashed
 
 def HOTP(key:str|int|bytes, c:int, digits:int = 6) -> str: #HMAC-based once time pass
@@ -117,12 +126,8 @@ def PBKDF2(passwd:str|int|bytes, salt:str|int|bytes, c:int, dklen:int, prf:PRF=H
     dk = dk[:dklen]
     return dk
 
-def AES256(k, Nc:int=4, Nk:int=4, ):
-    pass
-
-def _sha1(data:bytes)->bytes: #sha1 that returns output as bytes
-    sha1hash = hashlib.sha1(data)
-    return sha1hash.digest()
+#def AES256(k, Nc:int=4, Nk:int=4, ):
+#    pass
 
 def _computekeytoblocksize(key:bytes, blocksize:int, hashfunc:HashFunction=_sha1): #generate a blocksized key by resizing key as needed
     if len(key) > blocksize:
@@ -145,3 +150,36 @@ def _dynamictruncate(data:bytes)->int: #designed for 20 byte HMAC-SHA1 result
         p += patoffset
     ptrunc = int(p, 16) & 0x7fffffff #clear 32nd bit reducing it to 31 bit
     return ptrunc
+
+class AES128:
+    def __init__(self, key:str|int|bytes, data:str|int|bytes):
+        #type conversions (first implemented in the HMAC function above):
+        if isinstance(key, str): key:bytes = key.encode("utf-8")
+        if isinstance(key, int):
+            __tmpkey:str = ""
+            if str(key).startswith("0x"): __tmpkey:str = f"{key}"[2:]
+            else: __tmpkey:str = hex(key)[2:]
+            if len(__tmpkey) % 2 != 0:
+                __tmpkey = "0" + __tmpkey
+            key:bytes = bytes.fromhex(__tmpkey)
+        if isinstance(data, str): data:bytes = data.encode("utf-8")
+        if isinstance(data, int):
+            __tmpdata:str = ""
+            if str(data).startswith("0x"): __tmpdata:str = f"{data}"[2:]
+            else: __tmpdata:str = hex(data)[2:]
+            if len(__tmpdata) % 2 != 0:
+                __tmpdata = "0" + __tmpdata
+            data:bytes=bytes.fromhex(__tmpdata)
+        self.key = _computekeytoblocksize(key, 16, _sha256)
+        self.data = data
+    def encrypt(self):
+        cipher = AES.new(self.key, AES.MODE_CTR)
+        encryptedtext = cipher.encrypt(self.data)
+        tag = HMAC(self.key, (cipher.nonce + encryptedtext), hashfunc=_sha256)
+        return {"tag":tag, "nonce":cipher.nonce, "data":encryptedtext}
+    def decrypt(self, tag, nonce):
+        veriftag = HMAC(self.key, (nonce + self.data), hashfunc=_sha256)
+        if veriftag != tag:
+            raise ValueError("The encrypted password was modified!")
+        cipher = AES.new(self.key, AES.MODE_CTR, nonce=nonce)
+        return cipher.decrypt(self.data)
