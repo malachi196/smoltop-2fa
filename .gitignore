@@ -2,3 +2,5 @@ goal.txt
 __pycache__/
 smoltop/data/
 crash.log
+myinfo.txt
+.vscode/
