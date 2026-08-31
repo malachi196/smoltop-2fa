@@ -184,14 +184,14 @@ class AES128:
             encryptedtext = base64.b64encode(encryptedtext).decode("utf-8")
             return {"tag":tag, "nonce":nonce, "data":encryptedtext}
         return {"tag":tag, "nonce":cipher.nonce, "data":encryptedtext}
-    def decrypt(self, tag:bytes|str, nonce:bytes|str, inputencrptn:Literal["none", "base64"]="base64"):
+    def decrypt(self, tag:bytes|str, nonce:bytes|str, inputencrptn:Literal["none", "base64"]="base64", ispassundertest=False):
         data = self.data
         if inputencrptn == "base64":
             tag = base64.b64decode(tag.encode("utf-8"))
             nonce = base64.b64decode(nonce.encode("utf-8"))
             data = base64.b64decode(data)
         veriftag = HMAC(self.key, (nonce + data), hashfunc=_sha256)
-        if veriftag != tag:
+        if veriftag != tag and not ispassundertest:
             raise ValueError("The encrypted password was modified!")
         cipher = AES.new(self.key, AES.MODE_CTR, nonce=nonce)
         return cipher.decrypt(data)

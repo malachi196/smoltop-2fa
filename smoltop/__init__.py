@@ -139,20 +139,31 @@ def main(stdscr:curses.window):
         win.refresh()
         curses.flushinp()
     else:
-        win.addstr("Enter password\n", curses.color_pair(1))
-        win.addstr("> ", curses.color_pair(1))
-        passwd = __readpasswd(win)
-        curses.curs_set(False)
-        salt = base64.b64decode(datafile["meinkennwort"]["salt"].encode("utf-8"))
-        dk = PBKDF2(passwd, salt, _DEFAULTPBKDF2COUNT, 32)
-        encrpass = datafile["meinkennwort"]["data"]
-        tag = datafile["meinkennwort"]["tag"]
-        nonce = datafile["meinkennwort"]["nonce"]
-        conf = __decrypt(dk, encrpass, tag, nonce)
-        if dk == conf:
-            win.addstr("\ncorrect\n") #DEBUG
-        else:
-            win.addstr("\nincorrect\n") #DEBUG
+        correct = False
+        trycount = 0
+        while not correct:
+            trycount+=1
+            if trycount > 5:
+                win.addstr("Failed password check 5 times; press any key to close SmolTOP", curses.color_pair(3))
+                _ = win.getch()
+                sys.exit(0)
+            win.addstr("Enter password\n", curses.color_pair(1))
+            win.addstr("> ", curses.color_pair(1))
+            passwd = __readpasswd(win)
+            curses.curs_set(False)
+            salt = base64.b64decode(datafile["meinkennwort"]["salt"].encode("utf-8"))
+            dk = PBKDF2(passwd, salt, _DEFAULTPBKDF2COUNT, 32)
+            encrpass = datafile["meinkennwort"]["data"]
+            tag = datafile["meinkennwort"]["tag"]
+            nonce = datafile["meinkennwort"]["nonce"]
+            conf = __decrypt(dk, encrpass, tag, nonce, True)
+            if dk != conf:
+                win.addstr("\nincorrect\n", curses.color_pair(3)) #DEBUG
+                _ = win.getch()
+            else:
+                correct = True
+            win.clear()
+    win.addstr("ok") #DEBUG
 
     _ = win.getch()
     
@@ -228,8 +239,8 @@ def __encryptpass(newpass, salt, queue:Queue):
     encr = AES128(dk, dk).encrypt("base64")
     queue.put(encr)
 
-def __decrypt(dk, data, tag, nonce):  
-    return AES128(dk, data).decrypt(tag, nonce, "base64")
+def __decrypt(dk, data, tag, nonce, ispassundertest=False):  
+    return AES128(dk, data).decrypt(tag, nonce, "base64", ispassundertest)
 
 if __name__=="__main__":
     curses.wrapper(main)
