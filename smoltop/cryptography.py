@@ -32,6 +32,8 @@ from Crypto.Cipher import AES #aes is safer not to build from scratch
 #sha-1 blocksize is 64
 #sha-1 hash length is 20
 
+_DEFAULTPBKDF2COUNT = 100000 #300000
+
 def _sha1(data:bytes)->bytes: #sha1 that returns output as bytes
     sha1hash = hashlib.sha1(data)
     return sha1hash.digest()
@@ -172,14 +174,24 @@ class AES128:
             data:bytes=bytes.fromhex(__tmpdata)
         self.key = _computekeytoblocksize(key, 16, _sha256)
         self.data = data
-    def encrypt(self):
+    def encrypt(self, outencrptn:Literal["none", "base64"]="base64"):
         cipher = AES.new(self.key, AES.MODE_CTR)
         encryptedtext = cipher.encrypt(self.data)
         tag = HMAC(self.key, (cipher.nonce + encryptedtext), hashfunc=_sha256)
+        if outencrptn == "base64":
+            tag = base64.b64encode(tag).decode("utf-8")
+            nonce = base64.b64encode(cipher.nonce).decode("utf-8")
+            encryptedtext = base64.b64encode(encryptedtext).decode("utf-8")
+            return {"tag":tag, "nonce":nonce, "data":encryptedtext}
         return {"tag":tag, "nonce":cipher.nonce, "data":encryptedtext}
-    def decrypt(self, tag, nonce):
-        veriftag = HMAC(self.key, (nonce + self.data), hashfunc=_sha256)
+    def decrypt(self, tag:bytes|str, nonce:bytes|str, inputencrptn:Literal["none", "base64"]="base64"):
+        data = self.data
+        if inputencrptn == "base64":
+            tag = base64.b64decode(tag.encode("utf-8"))
+            nonce = base64.b64decode(nonce.encode("utf-8"))
+            data = base64.b64decode(data)
+        veriftag = HMAC(self.key, (nonce + data), hashfunc=_sha256)
         if veriftag != tag:
             raise ValueError("The encrypted password was modified!")
         cipher = AES.new(self.key, AES.MODE_CTR, nonce=nonce)
-        return cipher.decrypt(self.data)
+        return cipher.decrypt(data)
