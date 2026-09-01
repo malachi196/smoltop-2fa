@@ -80,7 +80,10 @@ def HOTP(key:str|int|bytes, c:int, digits:int = 6) -> str: #HMAC-based once time
 def TOTP(key:str|int|bytes, timeinterval_s:int=30, digits:int=6, encoding:Literal["none", "base32"]="base32") -> str: #timed one time pass
     if encoding != "none":
         if encoding == "base32":
-            key = base64.b32decode(key)
+            key = key.replace(" ", "")
+            if len(key) % 8 != 0:
+                key = key + (8 - (len(key)%8)) * "="
+            key = base64.b32decode(key.upper())
         else:
             raise Exception(f"\"{encoding}\" isn't a valid/supported encoding!")
     timenow = time()
