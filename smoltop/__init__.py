@@ -54,6 +54,7 @@ def main(stdscr:curses.window):
     curses.init_pair(1, curses.COLOR_GREEN, -1) #standard color
     curses.init_pair(2, curses.COLOR_CYAN, -1) #special text color
     curses.init_pair(3, curses.COLOR_RED, -1)  #error color
+    curses.init_pair(4, curses.COLOR_MAGENTA, -1) #copyright
 
     x_margin = 4
     y_margin = 2
@@ -95,6 +96,7 @@ def main(stdscr:curses.window):
         with open(f"{THISPATH}./data/smltpksndpss.json", "w") as f:
             f.write(r"{ }")
     datafile = __loaddatafile(win)
+    theknwrt = None
     if "meinkennwort" not in datafile:
         win.clear()
         stdscr.border()
@@ -103,10 +105,10 @@ def main(stdscr:curses.window):
             win.addstr("No master password detected\n\n", curses.color_pair(1))
             win.addstr("New Password:\n", curses.color_pair(1))
             win.addstr("> ", curses.color_pair(1))
-            newpass = __readpasswd(win)
+            newpass = __readinput(win, True)
             win.addstr(f"\nConfirm password:\n", curses.color_pair(1))
             win.addstr("> ", curses.color_pair(1))
-            confpass = __readpasswd(win)
+            confpass = __readinput(win, True)
             if newpass == confpass:
                 break
             else:
@@ -117,7 +119,9 @@ def main(stdscr:curses.window):
         try:
             salt = urandom(16)
             meinkennwort = Queue()
-            encpss = Process(target=__encryptpass, args=(newpass, salt, meinkennwort))
+            dk = PBKDF2(newpass, salt, _DEFAULTPBKDF2COUNT, 32)
+            theknwrt=dk
+            encpss = Process(target=__encryptpass, args=(dk, meinkennwort))
             encpss.start()
             frame = 0
             y, x = win.getyx()
@@ -149,7 +153,7 @@ def main(stdscr:curses.window):
                 sys.exit(0)
             win.addstr("Enter password\n", curses.color_pair(1))
             win.addstr("> ", curses.color_pair(1))
-            passwd = __readpasswd(win)
+            passwd = __readinput(win, True)
             curses.curs_set(False)
             salt = base64.b64decode(datafile["meinkennwort"]["salt"].encode("utf-8"))
             dk = PBKDF2(passwd, salt, _DEFAULTPBKDF2COUNT, 32)
@@ -158,17 +162,59 @@ def main(stdscr:curses.window):
             nonce = datafile["meinkennwort"]["nonce"]
             conf = __decrypt(dk, encrpass, tag, nonce, True)
             if dk != conf:
-                win.addstr("\nincorrect\n", curses.color_pair(3)) #DEBUG
+                win.addstr("\nincorrect\n", curses.color_pair(3))
                 _ = win.getch()
             else:
                 correct = True
+                theknwrt=dk
             win.clear()
-    win.addstr("ok") #DEBUG
-
-    _ = win.getch()
+    win.clear()
+    while True:
+        datafile = __loaddatafile(win)
+        curses.curs_set(True)
+        curses.cbreak(False)
+        win.addstr("SmolTOP 2fa Authenticator\n", curses.color_pair(1))
+        win.addstr("Copyright 2026 @malachi196\n", curses.color_pair(4))
+        win.addstr("\t1. Get TOTP\n", curses.color_pair(1))
+        win.addstr("\t2. Register Application (or Website)\n", curses.color_pair(1))
+        win.addstr("\t3. Quit\n", curses.color_pair(1))
+        win.addstr("> ", curses.color_pair(1))
+        inpt = __readinput(win)
+        match inpt:
+            case "1":
+                win.clear()
+                if "apps" not in datafile:
+                    win.addstr("No apps registered yet\n", curses.color_pair(1))
+                    _ = win.getch()
+                else:
+                    win.addstr("yep, there's apps\n", curses.color_pair(1)) #DEBUG
+                    _ = win.getch()
+            case "2":
+                win.clear()
+                win.addstr("Name of app> ", curses.color_pair(1))
+                appname = __readinput(win)
+                win.addstr("\nSetup key> ", curses.color_pair(1))
+                setupkey = __readinput(win)
+                if "apps" not in datafile:
+                    datafile["apps"] = {}
+                encrkey = AES128(theknwrt, setupkey).encrypt()
+                datafile["apps"][appname] = encrkey
+                __dumptodatafile(win, datafile)
+                win.addstr("\nApp registered successfully!\n", curses.color_pair(1))
+                _ = win.getch()
+            case "3":
+                win.addstr("\nbye!\n", curses.color_pair(1))
+                win.refresh()
+                sleep(1)
+                sys.exit()
+            case _:
+                win.addstr(f"\ninvalid option \"{inpt}\"", curses.color_pair(3))
+                _ = win.getch()
+        win.clear()
     
-def __readpasswd(win:curses.window):
+def __readinput(win:curses.window, passwd=False):
     curses.noecho()
+    curses.cbreak(True)
     newpass = ""
     curses.curs_set(True)
     while True:
@@ -186,7 +232,11 @@ def __readpasswd(win:curses.window):
             win.refresh()
             continue
         newpass+=chr(l)
-        win.addstr("*", curses.color_pair(2))
+        if passwd:
+            win.addstr("*", curses.color_pair(2))
+        else:
+            win.addstr(chr(l), curses.color_pair(2))
+    curses.cbreak(False)
     return newpass
 
 def __loaddatafile(win:curses.window):
@@ -234,8 +284,7 @@ def __crashhandler(win:curses.window):
     _ = win.getch()
     sys.exit(1)
 
-def __encryptpass(newpass, salt, queue:Queue):
-    dk = PBKDF2(newpass, salt, _DEFAULTPBKDF2COUNT, 32)
+def __encryptpass(dk, queue:Queue):
     encr = AES128(dk, dk).encrypt("base64")
     queue.put(encr)
 
