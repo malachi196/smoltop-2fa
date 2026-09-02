@@ -24,7 +24,7 @@
 
 from getpass import getpass
 import curses
-from cryptography import HMAC, AES128, PBKDF2, _DEFAULTPBKDF2COUNT
+from cryptography import HMAC, AES128, PBKDF2, _DEFAULTPBKDF2COUNT, TOTP
 from __asciistuff import smollertopasciiart, titleasciiart, spinner
 from time import sleep, time
 from pathlib import Path
@@ -173,10 +173,10 @@ def main(stdscr:curses.window):
         datafile = __loaddatafile(win)
         curses.curs_set(True)
         curses.cbreak(False)
-        win.addstr("SmolTOP 2fa Authenticator\n", curses.color_pair(1))
+        win.addstr("SmolTOP 2FA Authenticator\n", curses.color_pair(1))
         win.addstr("Copyright 2026 @malachi196\n", curses.color_pair(4))
         win.addstr("\t1. Get TOTP\n", curses.color_pair(1))
-        win.addstr("\t2. Register Application (or Website)\n", curses.color_pair(1))
+        win.addstr("\t2. Register Application\n", curses.color_pair(1))
         win.addstr("\t3. Quit\n", curses.color_pair(1))
         win.addstr("> ", curses.color_pair(1))
         inpt = __readinput(win)
@@ -187,8 +187,48 @@ def main(stdscr:curses.window):
                     win.addstr("No apps registered yet\n", curses.color_pair(1))
                     _ = win.getch()
                 else:
-                    win.addstr("yep, there's apps\n", curses.color_pair(1)) #DEBUG
-                    _ = win.getch()
+                    win.addstr("Select application to authenticate:", curses.color_pair(1))
+                    for i, (key, value) in enumerate(datafile["apps"].items()):
+                        win.addstr(f"\n{i+1}. {key}", curses.color_pair(1))
+                    win.addstr("\n> ", curses.color_pair(1))
+                    choice = __readinput(win)
+                    selected = False
+                    name = ""
+                    for i, (key, value) in enumerate(datafile["apps"].items()):
+                        if choice == str(i+1):
+                            name = str(key)
+                            win.addstr(f"\n{key} selected") #DEBUG
+                            selected = True
+                            break
+                    if not selected:
+                        win.addstr(f"\n\"{choice}\" is not a valid choice!", curses.color_pair(3))
+                        _ = win.getch()
+                    else:
+                        win.clear()
+                        stpkeyencr = datafile["apps"][name]["data"]
+                        nonce = datafile["apps"][name]["nonce"]
+                        tag = datafile["apps"][name]["tag"]
+                        stpkey = str(__decrypt(theknwrt, stpkeyencr, tag, nonce).decode("utf-8"))
+                        curses.cbreak(False)
+                        win.nodelay(True)
+                        totp = TOTP(stpkey)
+                        curses.curs_set(False)
+                        while True:
+                            win.erase()
+                            l = win.getch()
+                            epochleft = 30-(int(time())%30)
+                            if epochleft > 29:
+                                totp = TOTP(stpkey)
+                            win.addstr(f"{name}\n" + len(name) * "-" + "\nTOTP: ", curses.color_pair(1))
+                            win.addstr(f"{totp}\n", curses.color_pair(2))
+                            win.addstr(f"Time till next TOTP: ", curses.color_pair(1))
+                            win.addstr(f"{epochleft}s", curses.color_pair(2))
+                            win.refresh()
+                            if l != -1:
+                                break
+                            curses.napms(100)
+                        win.nodelay(False)
+                        curses.cbreak(True)
             case "2":
                 win.clear()
                 win.addstr("Name of app> ", curses.color_pair(1))

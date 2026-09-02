@@ -190,6 +190,6 @@ class AES128:
             data = base64.b64decode(data)
         veriftag = HMAC(self.key, (nonce + data), hashfunc=_sha256)
         if veriftag != tag and not ispassundertest:
-            raise ValueError("The encrypted password was modified!")
+            raise ValueError("The encrypted data was modified by a source other than SmolTOP!")
         cipher = AES.new(self.key, AES.MODE_CTR, nonce=nonce)
         return cipher.decrypt(data)
