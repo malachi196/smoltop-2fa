@@ -112,22 +112,17 @@ def PBKDF2(passwd:str|int|bytes, salt:str|int|bytes, c:int, dklen:int, prf:PRF=H
         salt:bytes=bytes.fromhex(__tmpsalt)
     #pbkdf2 alg:
     intervalsnum = math.ceil(dklen/hlen) #number of intervals needed to achieve length of dklen using hlen long blocks
-    t = []
     def f(i):
         firstu:bytes = prf(passwd, salt + int(i).to_bytes(4, "big"))
-        u = []
-        u.append(firstu)
-        for interval in range(c-1):
-            u.append(prf(passwd, u[interval]))
         result = firstu
-        for value in u[1:]:
-            result = bytes([a ^ b for a, b in zip(result, value)])
+        lastval = result
+        for interval in range(c-1):
+            lastval = prf(passwd, lastval)
+            result = bytes([a ^ b for a, b in zip(result, lastval)])
         return result
-    for i in range(intervalsnum):
-        t.append(f(i+1))
-    dk:bytes = t[0]
-    for tval in t[1:]:
-        dk += tval
+    dk:bytes = b''
+    for tval in range(intervalsnum):
+        dk += f(tval+1)
     dk = dk[:dklen]
     return dk
 
