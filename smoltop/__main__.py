@@ -139,7 +139,7 @@ def main(stdscr:curses.window):
             win.addstr(f"\nFailed to set master password!\n", curses.color_pair(3))
             __crashhandler(win)
         win.addstr(f"\n\nMaster Password set successfully!\n", curses.color_pair(2))
-
+        _ = win.getch()
         win.refresh()
         curses.flushinp()
     else:
