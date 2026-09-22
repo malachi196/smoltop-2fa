@@ -24,8 +24,8 @@
 
 from getpass import getpass
 import curses
-from cryptography import HMAC, AES128, PBKDF2, _DEFAULTPBKDF2COUNT, TOTP
-from __asciistuff import smollertopasciiart, titleasciiart, spinner
+from smoltop.cryptography import HMAC, AES128, PBKDF2, _DEFAULTPBKDF2COUNT, TOTP
+from smoltop.__asciistuff import smollertopasciiart, titleasciiart, spinner
 from time import sleep, time
 from pathlib import Path
 import json

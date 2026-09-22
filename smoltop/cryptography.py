@@ -23,7 +23,7 @@
 import hashlib
 from time import time
 from os import urandom
-from callbackprotocols import PRF, HashFunction
+from smoltop.callbackprotocols import PRF, HashFunction
 import math
 import base64
 from typing import Literal
