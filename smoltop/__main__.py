@@ -25,7 +25,7 @@
 from getpass import getpass
 import curses
 from smoltop.cryptography import HMAC, AES128, PBKDF2, _DEFAULTPBKDF2COUNT, TOTP
-from smoltop.__asciistuff import smollertopasciiart, titleasciiart, spinner
+from smoltop.__asciistuff import smollertopasciiart, titleasciiart, spinner, smalllogo, smalltitle
 from time import sleep, time
 from pathlib import Path
 import json
@@ -64,12 +64,21 @@ def main(stdscr:curses.window):
     win = stdscr.subwin((y_max - (y_margin*4)), (x_max - (x_margin*4)), y_margin, x_margin)
 
     #title:
-    for i, line in enumerate(smollertopasciiart.splitlines()):
-        win.addstr(y_margin+i, x_margin, line, curses.color_pair(1))
-    for i, line in enumerate(titleasciiart.splitlines()):
-        win.addstr(y_margin+3+i, x_margin+40, line, curses.color_pair(1))
-    win.addstr(y_margin+23, x_margin+4, "Press any key to start SmolTOP!", curses.color_pair(2))
-    win.refresh()
+    try:
+        for i, line in enumerate(smollertopasciiart.splitlines()):
+            win.addstr(y_margin+i, x_margin, line, curses.color_pair(1))
+        for i, line in enumerate(titleasciiart.splitlines()):
+            win.addstr(y_margin+3+i, x_margin+40, line, curses.color_pair(1))
+        win.addstr(y_margin+23, x_margin+4, "Press any key to start SmolTOP!", curses.color_pair(2))
+        win.refresh()
+    except curses.error:
+        win.clear()
+        for i, line in enumerate(smalllogo.splitlines()):
+            win.addstr(y_margin+i, x_margin, line, curses.color_pair(1))
+        for i, line in enumerate(smalltitle.splitlines()):
+            win.addstr(y_margin+3+i, x_margin+40, line, curses.color_pair(1))
+        win.addstr(y_margin+23, x_margin+4, "Press any key to start SmolTOP!", curses.color_pair(2))
+        win.refresh()
 
     frame=0
     stdscr.border()
